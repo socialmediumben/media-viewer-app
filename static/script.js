@@ -24,7 +24,14 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok) {
                 mediaTitle.textContent = data.title; // Set title text
 
-                const filePath = `/static/${data.file_path}`;
+                // --- THIS IS THE CRITICAL CORRECTION ---
+                let filePath;
+                if (data.file_path.startsWith('http://') || data.file_path.startsWith('https://')) {
+                    filePath = data.file_path; // It's already a full URL from GCS
+                } else {
+                    filePath = `/static/${data.file_path}`; // It's a relative path from our static folder
+                }
+                // --- END CRITICAL CORRECTION ---
 
                 if (data.type === 'image') {
                     const img = document.createElement('img');
@@ -41,27 +48,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else if (data.type === 'video') {
                     const video = document.createElement('video');
                     video.src = filePath;
-                    video.controls = false;
+                    video.controls = false; // Start without controls
                     video.autoplay = true;
                     video.loop = true;
-                    video.muted = true; // Crucial for autoplay
-                    video.playsInline = true;
+                    video.playsInline = true; // Important for iOS devices
+                    video.muted = true; // CRUCIAL for autoplay policies (placed here for consistency)
+                    
                     mediaDisplay.appendChild(video);
 
-                    video.onloadeddata = () => { // Hide title after video data is loaded
-                         mediaTitle.classList.remove('visible');
-                    };
+                    video.load(); // Explicitly load the video
+                    video.play().then(() => {
+                        // Playback started successfully (autoplay worked)
+                        mediaTitle.classList.remove('visible'); // Hide title
+                        console.log("Video autoplayed successfully.");
+                    }).catch(error => {
+                        // Autoplay was prevented
+                        console.warn("Autoplay was prevented:", error);
+                        // Display message and show controls for manual play
+                        mediaTitle.textContent = `${data.title} (Autoplay blocked, click to play)`; // More generic message
+                        mediaTitle.classList.add('visible');
+                        video.controls = true; // Show native controls
+                        
+                        video.addEventListener('click', function _listener() {
+                            video.play().then(() => {
+                                mediaTitle.classList.remove('visible'); // Hide title after manual play
+                                video.removeEventListener('click', _listener); // Remove listener
+                            }).catch(err => {
+                                console.error("Manual play also failed:", err);
+                            });
+                        });
+                    });
+
                     video.onerror = () => { // Keep title visible on video load error
                         mediaTitle.textContent = `Error loading video: ${data.title}`;
                         mediaTitle.classList.add('visible');
                     };
 
-                    video.play().catch(error => {
-                        console.warn("Autoplay was prevented:", error);
-                        video.controls = true;
-                        mediaTitle.textContent = `${data.title} (Click play)`;
-                        mediaTitle.classList.add('visible'); // Ensure title visible if autoplay fails
-                    });
                 } else {
                     mediaTitle.textContent = 'Unknown media type.';
                     mediaDisplay.innerHTML = '<p>Unsupported media type.</p>';
@@ -147,15 +169,13 @@ document.addEventListener('DOMContentLoaded', () => {
         } else if (event.key === '(') { // Hotkey for Full Screen
             event.preventDefault(); // Prevent default behavior of '('
             if (!document.fullscreenElement) {
-                // If not currently in full screen, request full screen for the entire document body
                 document.documentElement.requestFullscreen().catch(err => {
                     console.warn(`Error attempting to enable full-screen mode: ${err.message} (Perhaps not allowed by browser security policy?)`);
                 });
             } else {
-                // If currently in full screen, exit full screen
                 document.exitFullscreen();
             }
-        } else if (event.key === ')') { // NEW: Hotkey for Data Refresh
+        } else if (event.key === ')') { // Hotkey for Data Refresh
             event.preventDefault(); // Prevent default behavior of ')'
             refreshServerData(); // Trigger data refresh
         }
