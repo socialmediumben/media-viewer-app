@@ -1,0 +1,108 @@
+/* media_viewer/static/style.css */
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background-color: #000; /* Black background for full-screen effect */
+    color: #fff; /* White text */
+    overflow: hidden; /* Hide scrollbars if media slightly overflows */
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    min-height: 100vh; /* Ensure body takes full viewport height */
+    position: relative; /* For absolute positioning of controls */
+}
+
+.controls {
+    position: absolute;
+    top: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1000; /* Ensure controls are on top of media */
+    background: rgba(0, 0, 0, 0.7); /* Semi-transparent black background */
+    padding: 10px 20px;
+    border-radius: 8px;
+    display: flex;
+    gap: 10px;
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+    opacity: 0; /* NEW: Start with opacity 0 to hide it */
+    pointer-events: none; /* NEW: Prevent interaction when hidden */
+    transition: opacity 0.3s ease-in-out; /* NEW: Add a smooth transition */
+}
+
+/* Add a class to make it visible */
+.controls.visible {
+    opacity: 1;
+    pointer-events: auto; /* NEW: Enable interaction when visible */
+}
+
+input[type="text"] {
+    padding: 8px;
+    border: 1px solid #555;
+    border-radius: 4px;
+    background-color: #333;
+    color: #fff;
+    font-size: 1em;
+    width: 200px;
+}
+
+button {
+    padding: 8px 15px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 1em;
+    transition: background-color 0.2s ease;
+}
+
+button:hover {
+    background-color: #0056b3;
+}
+
+.media-container {
+    width: 100vw; /* Take full viewport width */
+    height: 100vh; /* Take full viewport height */
+    display: flex;
+    flex-direction: column; /* Stack title above media */
+    align-items: center;
+    justify-content: center;
+    position: relative; /* For positioning media elements */
+}
+
+#mediaTitle {
+    position: absolute;
+    top: 100px; /* Adjust as needed to be below controls */
+    font-size: 2em;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.8);
+    z-index: 999; /* Below controls, above media */
+    opacity: 0; /* Start with opacity 0 to hide it */
+    transition: opacity 0.3s ease-in-out; /* Add a smooth transition for fading */
+    pointer-events: none; /* Prevent it from interfering with clicks/taps on media */
+}
+
+/* Add a class to make it visible */
+#mediaTitle.visible {
+    opacity: 1;
+}
+
+#mediaDisplay {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden; /* Hide any overflow from the media */
+}
+
+#mediaDisplay img,
+#mediaDisplay video {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto; /* Maintain aspect ratio */
+    height: auto; /* Maintain aspect ratio */
+    object-fit: contain; /* Ensures the entire media fits within the container without cropping */
+    display: block; /* Remove extra space below images/videos */
+}
