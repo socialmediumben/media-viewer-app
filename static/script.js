@@ -9,12 +9,9 @@ document.addEventListener('DOMContentLoaded', () => {
     const transitionVideo = document.getElementById('transitionVideo'); // Get transition video element
 
     // NEW: Define the path to your transition video
-    // Adjust this based on where you stored your "Door Animation.mp4"
-    // IMPORTANT: If you put it in static/videos, it's relative. If on GCS, it's a full URL.
-    const TRANSITION_VIDEO_PATH = "https://storage.googleapis.com/socialmediumben-media-viewer/Door%20Animation.mp4"; 
-    // OR if hosted on GCS:
-    // const TRANSITION_VIDEO_PATH = "https://storage.googleapis.com/your-bucket-name/Door%20Animation.mp4";
-
+    // IMPORTANT: This should be the full GCS URL for your Door Animation video.
+    const TRANSITION_VIDEO_PATH = "https://storage.googleapis.com/socialmediumben-media-viewer/Door%20Animation.mp4";
+    
     // Set the source of the transition video once
     transitionVideo.src = TRANSITION_VIDEO_PATH;
 
