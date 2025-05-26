@@ -106,3 +106,22 @@ button:hover {
     object-fit: contain; /* Ensures the entire media fits within the container without cropping */
     display: block; /* Remove extra space below images/videos */
 }
+
+/* NEW: Styling for the transition video overlay */
+.transition-overlay {
+    position: fixed; /* Fixed to the viewport */
+    top: 0;
+    left: 0;
+    width: 100vw;
+    height: 100vh;
+    object-fit: cover; /* Cover the entire screen, cropping if necessary */
+    z-index: 2000; /* Ensure it's above everything else (controls are 1000, title is 999) */
+    opacity: 0; /* Initially hidden */
+    visibility: hidden; /* Also hidden from accessibility tree and layout */
+    transition: opacity 0.3s ease-in-out; /* Smooth fade effect */
+}
+
+.transition-overlay.active {
+    opacity: 1; /* Fully visible */
+    visibility: visible; /* Make it visible */
+}

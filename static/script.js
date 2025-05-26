@@ -6,16 +6,31 @@ document.addEventListener('DOMContentLoaded', () => {
     const fetchMediaBtn = document.getElementById('fetchMediaBtn');
     const mediaTitle = document.getElementById('mediaTitle');
     const mediaDisplay = document.getElementById('mediaDisplay');
+    const transitionVideo = document.getElementById('transitionVideo'); // Get transition video element
 
-    // Function to fetch and display media
+    // NEW: Define the path to your transition video
+    // Adjust this based on where you stored your "Door Animation.mp4"
+    // IMPORTANT: If you put it in static/videos, it's relative. If on GCS, it's a full URL.
+    const TRANSITION_VIDEO_PATH = "https://storage.googleapis.com/socialmediumben-media-viewer/Door%20Animation.mp4"; 
+    // OR if hosted on GCS:
+    // const TRANSITION_VIDEO_PATH = "https://storage.googleapis.com/your-bucket-name/Door%20Animation.mp4";
+
+    // Set the source of the transition video once
+    transitionVideo.src = TRANSITION_VIDEO_PATH;
+
+    // --- Function to fetch and display media ---
     async function fetchMedia(contentId) {
-        // Show title during loading
-        mediaTitle.textContent = `Loading media for ID: ${contentId}...`;
-        mediaTitle.classList.add('visible'); // Make title visible
-        mediaDisplay.innerHTML = ''; // Clear previous media
-
         // Clear the input field immediately after search is initiated
         contentIdInput.value = ''; 
+
+        // 1. Play door closing animation
+        // We'll use 'true' to indicate the closing phase (where the video makes the screen dark)
+        await playTransition(true); 
+
+        // 2. Hide current media and show loading title while behind the "closed door"
+        mediaDisplay.innerHTML = ''; 
+        mediaTitle.textContent = `Loading media for ID: ${contentId}...`;
+        mediaTitle.classList.add('visible'); 
 
         try {
             const response = await fetch(`/media/${contentId}`);
@@ -24,83 +39,129 @@ document.addEventListener('DOMContentLoaded', () => {
             if (response.ok) {
                 mediaTitle.textContent = data.title; // Set title text
 
-                // --- THIS IS THE CRITICAL CORRECTION ---
                 let filePath;
                 if (data.file_path.startsWith('http://') || data.file_path.startsWith('https://')) {
-                    filePath = data.file_path; // It's already a full URL from GCS
+                    filePath = data.file_path; // It's a full URL from GCS
                 } else {
                     filePath = `/static/${data.file_path}`; // It's a relative path from our static folder
                 }
-                // --- END CRITICAL CORRECTION ---
 
-                if (data.type === 'image') {
-                    const img = document.createElement('img');
-                    img.src = filePath;
-                    img.alt = data.title;
-                    img.onload = () => { // Hide title after image loads
-                        mediaTitle.classList.remove('visible');
-                    };
-                    img.onerror = () => { // Keep title visible on image load error
-                        mediaTitle.textContent = `Error loading image: ${data.title}`;
-                        mediaTitle.classList.add('visible');
-                    };
-                    mediaDisplay.appendChild(img);
-                } else if (data.type === 'video') {
-                    const video = document.createElement('video');
-                    video.src = filePath;
-                    video.controls = false; // Start without controls
-                    video.autoplay = true;
-                    video.loop = true;
-                    video.playsInline = true; // Important for iOS devices
-                    video.muted = true; // CRUCIAL for autoplay policies (placed here for consistency)
-                    
-                    mediaDisplay.appendChild(video);
-
-                    video.load(); // Explicitly load the video
-                    video.play().then(() => {
-                        // Playback started successfully (autoplay worked)
-                        mediaTitle.classList.remove('visible'); // Hide title
-                        console.log("Video autoplayed successfully.");
-                    }).catch(error => {
-                        // Autoplay was prevented
-                        console.warn("Autoplay was prevented:", error);
-                        // Display message and show controls for manual play
-                        mediaTitle.textContent = `${data.title} (Autoplay blocked, click to play)`; // More generic message
-                        mediaTitle.classList.add('visible');
-                        video.controls = true; // Show native controls
+                // Create a promise that resolves when the media is fully loaded/ready
+                const mediaLoadedPromise = new Promise((resolve, reject) => {
+                    if (data.type === 'image') {
+                        const img = document.createElement('img');
+                        img.src = filePath;
+                        img.alt = data.title;
+                        img.onload = () => {
+                            mediaDisplay.appendChild(img);
+                            resolve(); // Image loaded
+                        };
+                        img.onerror = () => {
+                            reject(new Error(`Error loading image: ${data.title}`));
+                        };
+                        mediaDisplay.appendChild(img);
+                    } else if (data.type === 'video') {
+                        const video = document.createElement('video');
+                        video.src = filePath;
+                        video.controls = false;
+                        video.autoplay = true;
+                        video.loop = true;
+                        video.muted = true; // Crucial for autoplay policies
+                        video.playsInline = true; 
                         
-                        video.addEventListener('click', function _listener() {
-                            video.play().then(() => {
-                                mediaTitle.classList.remove('visible'); // Hide title after manual play
-                                video.removeEventListener('click', _listener); // Remove listener
-                            }).catch(err => {
-                                console.error("Manual play also failed:", err);
+                        mediaDisplay.appendChild(video);
+
+                        video.load(); // Explicitly load the video
+
+                        // Attempt to play, and handle if it fails
+                        video.play().then(() => {
+                            console.log("Video autoplayed successfully.");
+                            resolve(); // Video loaded and autoplayed
+                        }).catch(error => {
+                            console.warn("Autoplay was prevented:", error);
+                            // Autoplay was blocked, set up manual play fallback
+                            video.controls = true; // Show native controls
+                            mediaTitle.textContent = `${data.title} (Autoplay blocked, click to play)`;
+                            mediaTitle.classList.add('visible'); // Keep title visible
+                            
+                            video.addEventListener('click', function _listener() {
+                                video.play().then(() => {
+                                    mediaTitle.classList.remove('visible'); // Hide title after manual play
+                                    video.removeEventListener('click', _listener); // Remove listener after first click
+                                }).catch(err => {
+                                    console.error("Manual play also failed:", err);
+                                });
                             });
+                            resolve(); // Resolve promise so transition opens, even if play needs click
                         });
-                    });
 
-                    video.onerror = () => { // Keep title visible on video load error
-                        mediaTitle.textContent = `Error loading video: ${data.title}`;
-                        mediaTitle.classList.add('visible');
-                    };
+                        video.onerror = () => {
+                            reject(new Error(`Error loading video: ${data.title}`));
+                        };
 
-                } else {
-                    mediaTitle.textContent = 'Unknown media type.';
-                    mediaDisplay.innerHTML = '<p>Unsupported media type.</p>';
-                    mediaTitle.classList.add('visible'); // Keep title visible for unsupported types
-                }
+                    } else {
+                        reject(new Error('Unknown media type.'));
+                    }
+                });
+
+                // 3. Wait for the new media to load before playing the "door opening" animation
+                await mediaLoadedPromise;
+                mediaTitle.classList.remove('visible'); // Hide loading title if successful
 
             } else {
+                // If fetching data fails, show error and don't play opening animation
                 mediaTitle.textContent = data.error || `Error fetching media for ID: ${contentId}.`;
+                mediaTitle.classList.add('visible');
                 mediaDisplay.innerHTML = '';
-                mediaTitle.classList.add('visible'); // Keep title visible on fetch error
             }
         } catch (error) {
+            // Network error or media loading error
             console.error('Network error or problem fetching media:', error);
             mediaTitle.textContent = 'Failed to load media (network error or invalid ID).';
+            mediaTitle.classList.add('visible');
             mediaDisplay.innerHTML = '';
-            mediaTitle.classList.add('visible'); // Keep title visible on network error
         }
+
+        // 4. Play door opening animation (only if new media was successfully prepared)
+        // Check if there's actually an img or video element appended
+        if (mediaDisplay.querySelector('img, video')) {
+             await playTransition(false); // false means play opening animation
+        } else {
+            // If nothing loaded due to error, just hide the transition video if it was shown
+            transitionVideo.classList.remove('active');
+            transitionVideo.pause();
+            transitionVideo.currentTime = 0; // Reset for next use
+        }
+    }
+
+    // NEW: Function to play transition video
+    async function playTransition(isClosing) { // isClosing: true for closing, false for opening
+        return new Promise(resolve => {
+            if (isClosing) {
+                // For closing: ensure video is at start, then play and make visible
+                transitionVideo.currentTime = 0; // Start from beginning for closing animation
+                transitionVideo.classList.add('active'); // Make overlay visible
+                transitionVideo.play();
+                transitionVideo.onended = () => {
+                    // Resolve when closing animation ends (i.e., screen is dark)
+                    resolve(); 
+                };
+            } else {
+                // For opening: This assumes 'Door Animation.mp4' plays a closing sequence
+                // and then an opening sequence, or that the 'open' effect is just fading out.
+                // If your video is just the 'door closing' animation and ends,
+                // you would resolve immediately after hiding.
+                
+                // If your "Door Animation.mp4" has an opening sequence,
+                // you would need to play that specific part, or have a separate "Door Open.mp4".
+                // As written, it simply fades out the 'closing' animation overlay.
+
+                transitionVideo.classList.remove('active'); // Make invisible
+                transitionVideo.pause(); // Pause it
+                transitionVideo.currentTime = 0; // Reset for next use
+                resolve(); // Immediately resolve for opening transition (as it's just a fade out)
+            }
+        });
     }
 
     // Event listener for the manual input button

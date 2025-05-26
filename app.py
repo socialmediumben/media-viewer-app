@@ -2,17 +2,17 @@ from flask import Flask, render_template, jsonify, send_from_directory
 import requests
 import json
 import time
-import os # NEW: Import os for environment variables
+import os # Ensure os is imported for environment variables if you're using them
 
 app = Flask(__name__)
 
 # --- Configuration for Google Apps Script Web App URL ---
-# Get the URL from an environment variable, fallback to a placeholder if not set
-# This is crucial for deployment, where you'll set this variable on Render.
-GOOGLE_APPS_SCRIPT_API_URL = os.environ.get("GOOGLE_APPS_SCRIPT_API_URL", "YOUR_ACTUAL_GOOGLE_APPS_SCRIPT_URL_HERE") # IMPORTANT: Update default or set env var on Render
+# IMPORTANT: This should be your deployed Google Apps Script Web App URL.
+# Ensure it matches the URL from your Render environment variable or the hardcoded fallback.
+GOOGLE_APPS_SCRIPT_API_URL = os.environ.get("GOOGLE_APPS_SCRIPT_API_URL", "https://script.google.com/macros/s/AKfycbzdY1BVrU_LbHVRHZnWClhyCTbVQzQ2A5kY_D40aZMLj-SncTaC4YTJGDEy1wnjcRHL8Q/exec")
 
-if GOOGLE_APPS_SCRIPT_API_URL == "YOUR_ACTUAL_GOOGLE_APPS_SCRIPT_URL_HERE":
-    print("WARNING: GOOGLE_APPS_SCRIPT_API_URL environment variable not set. Using placeholder. Media data fetching will fail.")
+if GOOGLE_APPS_SCRIPT_API_URL == "YOUR_ACTUAL_GOOGLE_APPS_SCRIPT_URL_HERE": # Fallback placeholder check
+    print("WARNING: GOOGLE_APPS_SCRIPT_API_URL environment variable not set. Using placeholder. Media data fetching will fail locally.")
 
 # --- Load MEDIA_DATABASE from Google Apps Script API ---
 MEDIA_DATABASE = {}
@@ -22,7 +22,7 @@ def fetch_media_data_from_google_sheet():
     global MEDIA_DATABASE
     print(f"Attempting to fetch media data from: {GOOGLE_APPS_SCRIPT_API_URL}")
     try:
-        if GOOGLE_APPS_SCRIPT_API_URL == "YOUR_ACTUAL_GOOGLE_APPS_SCRIPT_URL_HERE":
+        if GOOGLE_APPS_SCRIPT_API_URL == "YOUR_ACTUAL_GOOGLE_APPS_SCRIPT_URL_HERE": # Check placeholder
             print("Skipping GAS fetch: API URL not set.")
             MEDIA_DATABASE = {}
             return
@@ -56,10 +56,15 @@ fetch_media_data_from_google_sheet()
 
 @app.route('/')
 def index():
+    """Renders the main HTML page for the media viewer."""
     return render_template('index.html')
 
 @app.route('/media/<string:content_id>')
 def get_media(content_id):
+    """
+    API endpoint to retrieve media information based on content_id.
+    Returns JSON with media details or an error message if not found.
+    """
     media_info = MEDIA_DATABASE.get(content_id)
     if media_info:
         return jsonify(media_info)
@@ -68,10 +73,17 @@ def get_media(content_id):
 
 @app.route('/static/<path:filename>')
 def serve_static(filename):
+    """
+    Serves static files (images, videos, CSS, JS) from the 'static' directory.
+    """
     return send_from_directory(app.static_folder, filename)
 
 @app.route('/refresh_data', methods=['POST'])
 def refresh_data():
+    """
+    Endpoint to trigger a refresh of the media data from the Google Sheet.
+    Accessible via a POST request.
+    """
     print("Refresh request received. Reloading media data...")
     fetch_media_data_from_google_sheet()
     return jsonify({"status": "success", "message": "Media data refreshed."})
