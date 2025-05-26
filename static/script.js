@@ -8,23 +8,45 @@ document.addEventListener('DOMContentLoaded', () => {
     const mediaDisplay = document.getElementById('mediaDisplay');
     const transitionVideo = document.getElementById('transitionVideo'); // Get transition video element
 
-    // NEW: Define the path to your transition video
-    // IMPORTANT: This should be the full GCS URL for your Door Animation video.
-    const TRANSITION_VIDEO_PATH = "https://storage.googleapis.com/socialmediumben-media-viewer/Door%20Animation.mp4";
-    
-    // Set the source of the transition video once
-    transitionVideo.src = TRANSITION_VIDEO_PATH;
+    // NEW: Define the paths to your transition videos
+    const DOOR_CLOSE_VIDEO_PATH = "https://storage.googleapis.com/socialmediumben-media-viewer/Door%20Close.mp4";
+    const DOOR_OPEN_VIDEO_PATH = "https://storage.googleapis.com/socialmediumben-media-viewer/Door%20Open.mp4";
+
+    // --- Function to play transition video ---
+    async function playTransition(videoPath) {
+        return new Promise(resolve => {
+            transitionVideo.src = videoPath; // Set the source for the specific transition video
+            transitionVideo.currentTime = 0; // Ensure it starts from the beginning
+            transitionVideo.classList.add('active'); // Make overlay visible
+            
+            // Set up event listener to resolve the promise when video ends
+            transitionVideo.onended = () => {
+                transitionVideo.onended = null; // Remove listener to prevent multiple calls
+                resolve(); 
+            };
+
+            // Attempt to play, handling cases where it might be blocked
+            transitionVideo.play().catch(error => {
+                console.warn(`Transition video autoplay blocked for ${videoPath}:`, error);
+                // If autoplay is blocked, resolve immediately so the app doesn't hang.
+                // The transition won't be smooth, but the app will continue.
+                transitionVideo.classList.remove('active'); // Hide it if it can't play
+                transitionVideo.onended = null;
+                resolve(); 
+            });
+        });
+    }
 
     // --- Function to fetch and display media ---
     async function fetchMedia(contentId) {
         // Clear the input field immediately after search is initiated
         contentIdInput.value = ''; 
 
-        // 1. Play door closing animation
-        // We'll use 'true' to indicate the closing phase (where the video makes the screen dark)
-        await playTransition(true); 
+        // 1. Play door closing animation (covers the current media)
+        // This will make the the screen dark. We wait for it to complete.
+        await playTransition(DOOR_CLOSE_VIDEO_PATH); 
 
-        // 2. Hide current media and show loading title while behind the "closed door"
+        // 2. ONLY NOW clear previous media, as it's hidden behind the closed door
         mediaDisplay.innerHTML = ''; 
         mediaTitle.textContent = `Loading media for ID: ${contentId}...`;
         mediaTitle.classList.add('visible'); 
@@ -43,7 +65,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     filePath = `/static/${data.file_path}`; // It's a relative path from our static folder
                 }
 
-                // Create a promise that resolves when the media is fully loaded/ready
+                // Create a promise that resolves when the new media is fully loaded/ready
                 const mediaLoadedPromise = new Promise((resolve, reject) => {
                     if (data.type === 'image') {
                         const img = document.createElement('img');
@@ -101,7 +123,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
-                // 3. Wait for the new media to load before playing the "door opening" animation
+                // 3. Wait for the new media to load (while doors are closed)
                 await mediaLoadedPromise;
                 mediaTitle.classList.remove('visible'); // Hide loading title if successful
 
@@ -115,50 +137,24 @@ document.addEventListener('DOMContentLoaded', () => {
             // Network error or media loading error
             console.error('Network error or problem fetching media:', error);
             mediaTitle.textContent = 'Failed to load media (network error or invalid ID).';
-            mediaTitle.classList.add('visible');
-            mediaDisplay.innerHTML = '';
+            mediaDisplay.innerHTML = ''; // Clear media display on network error
+            mediaTitle.classList.add('visible'); // Keep title visible on network error
         }
 
         // 4. Play door opening animation (only if new media was successfully prepared)
         // Check if there's actually an img or video element appended
         if (mediaDisplay.querySelector('img, video')) {
-             await playTransition(false); // false means play opening animation
+             await playTransition(DOOR_OPEN_VIDEO_PATH); // Play the specific Door Open video
+             // After Door Open plays, hide the transition video overlay
+             transitionVideo.classList.remove('active');
+             transitionVideo.pause();
+             transitionVideo.currentTime = 0; // Reset for next use
         } else {
-            // If nothing loaded due to error, just hide the transition video if it was shown
+            // If nothing loaded due to error, ensure transition video is hidden
             transitionVideo.classList.remove('active');
             transitionVideo.pause();
             transitionVideo.currentTime = 0; // Reset for next use
         }
-    }
-
-    // NEW: Function to play transition video
-    async function playTransition(isClosing) { // isClosing: true for closing, false for opening
-        return new Promise(resolve => {
-            if (isClosing) {
-                // For closing: ensure video is at start, then play and make visible
-                transitionVideo.currentTime = 0; // Start from beginning for closing animation
-                transitionVideo.classList.add('active'); // Make overlay visible
-                transitionVideo.play();
-                transitionVideo.onended = () => {
-                    // Resolve when closing animation ends (i.e., screen is dark)
-                    resolve(); 
-                };
-            } else {
-                // For opening: This assumes 'Door Animation.mp4' plays a closing sequence
-                // and then an opening sequence, or that the 'open' effect is just fading out.
-                // If your video is just the 'door closing' animation and ends,
-                // you would resolve immediately after hiding.
-                
-                // If your "Door Animation.mp4" has an opening sequence,
-                // you would need to play that specific part, or have a separate "Door Open.mp4".
-                // As written, it simply fades out the 'closing' animation overlay.
-
-                transitionVideo.classList.remove('active'); // Make invisible
-                transitionVideo.pause(); // Pause it
-                transitionVideo.currentTime = 0; // Reset for next use
-                resolve(); // Immediately resolve for opening transition (as it's just a fade out)
-            }
-        });
     }
 
     // Event listener for the manual input button
