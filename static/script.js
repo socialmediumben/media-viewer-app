@@ -36,7 +36,7 @@ document.addEventListener('DOMContentLoaded', () => {
         doorOpenVideoUrl = await getMediaData("Door Open");   // Use the ID from your Google Sheet
 
         if (!doorCloseVideoUrl || !doorOpenVideoUrl) {
-            console.error("WARNING: Could not fetch one or both transition video URLs from the database.");
+            console.error("WARNING: Could not fetch one or both transition video URLs from the database. Transitions may not work.");
             // You might want to display a message to the user or use fallback logic here
         }
     })();
