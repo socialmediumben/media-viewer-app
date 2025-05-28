@@ -103,11 +103,11 @@ button:hover {
     max-height: 100%;
     width: auto; /* Maintain aspect ratio */
     height: auto; /* Maintain aspect ratio */
-    object-fit: contain; /* Ensures the entire media fits within the container without cropping */
+    object-fit: cover; /* CHANGED: Ensures the entire media fills the container, cropping if necessary */
     display: block; /* Remove extra space below images/videos */
 }
 
-/* NEW: Styling for the transition video overlay */
+/* Styling for the transition video overlay */
 .transition-overlay {
     position: fixed; /* Fixed to the viewport */
     top: 0;
