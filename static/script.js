@@ -6,15 +6,49 @@ document.addEventListener('DOMContentLoaded', () => {
     const fetchMediaBtn = document.getElementById('fetchMediaBtn');
     const mediaTitle = document.getElementById('mediaTitle');
     const mediaDisplay = document.getElementById('mediaDisplay');
-    const transitionVideo = document.getElementById('transitionVideo'); // Get transition video element
+    const transitionVideo = document.getElementById('transitionVideo');
 
-    // NEW: Define the paths to your transition videos
-    const DOOR_CLOSE_VIDEO_PATH = "https://storage.googleapis.com/socialmediumben-media-viewer/Door%20Close.mp4";
-    const DOOR_OPEN_VIDEO_PATH = "https://storage.googleapis.com/socialmediumben-media-viewer/Door%20Open.mp4";
+    // NEW: Variables to store fetched transition video paths
+    let doorCloseVideoUrl = "";
+    let doorOpenVideoUrl = "";
+
+    // NEW: Function to fetch a specific media item's data (for transition videos)
+    async function getMediaData(contentId) {
+        try {
+            const response = await fetch(`/media/${contentId}`);
+            const data = await response.json();
+            if (response.ok && data.file_path) {
+                return data.file_path; // Return the file_path directly
+            } else {
+                console.error(`Failed to get media data for ID: ${contentId}`, data.error);
+                return null;
+            }
+        } catch (error) {
+            console.error(`Network error fetching media data for ID: ${contentId}:`, error);
+            return null;
+        }
+    }
+
+    // NEW: Fetch transition video paths on page load
+    // Using a self-executing async function to do this once
+    (async () => {
+        doorCloseVideoUrl = await getMediaData("Door Close"); // Use the ID from your Google Sheet
+        doorOpenVideoUrl = await getMediaData("Door Open");   // Use the ID from your Google Sheet
+
+        if (!doorCloseVideoUrl || !doorOpenVideoUrl) {
+            console.error("WARNING: Could not fetch one or both transition video URLs from the database.");
+            // You might want to display a message to the user or use fallback logic here
+        }
+    })();
 
     // --- Function to play transition video ---
     async function playTransition(videoPath) {
         return new Promise(resolve => {
+            if (!videoPath) {
+                console.warn("Transition video path is missing. Skipping transition.");
+                resolve(); // Resolve immediately if path is missing
+                return;
+            }
             transitionVideo.src = videoPath; // Set the source for the specific transition video
             transitionVideo.currentTime = 0; // Ensure it starts from the beginning
             transitionVideo.classList.add('active'); // Make overlay visible
@@ -44,7 +78,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // 1. Play door closing animation (covers the current media)
         // This will make the the screen dark. We wait for it to complete.
-        await playTransition(DOOR_CLOSE_VIDEO_PATH); 
+        if (doorCloseVideoUrl) { // Only play if URL is available
+            await playTransition(doorCloseVideoUrl); 
+        } else {
+            console.warn("Door Close video URL not available. Skipping closing transition.");
+        }
 
         // 2. ONLY NOW clear previous media, as it's hidden behind the closed door
         mediaDisplay.innerHTML = ''; 
@@ -142,13 +180,18 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // 4. Play door opening animation (only if new media was successfully prepared)
-        // Check if there's actually an img or video element appended
-        if (mediaDisplay.querySelector('img, video')) {
-             await playTransition(DOOR_OPEN_VIDEO_PATH); // Play the specific Door Open video
+        if (mediaDisplay.querySelector('img, video') && doorOpenVideoUrl) { // Only play if new media and URL available
+             await playTransition(doorOpenVideoUrl); // Play the specific Door Open video
              // After Door Open plays, hide the transition video overlay
              transitionVideo.classList.remove('active');
              transitionVideo.pause();
              transitionVideo.currentTime = 0; // Reset for next use
+        } else if (!doorOpenVideoUrl) {
+            console.warn("Door Open video URL not available. Skipping opening transition.");
+            // Ensure transition video is hidden if it was somehow left active
+            transitionVideo.classList.remove('active');
+            transitionVideo.pause();
+            transitionVideo.currentTime = 0;
         } else {
             // If nothing loaded due to error, ensure transition video is hidden
             transitionVideo.classList.remove('active');
