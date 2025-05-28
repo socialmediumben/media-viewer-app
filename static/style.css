@@ -99,11 +99,11 @@ button:hover {
 
 #mediaDisplay img,
 #mediaDisplay video {
-    max-width: 100%;
-    max-height: 100%;
-    width: auto; /* Maintain aspect ratio */
-    height: auto; /* Maintain aspect ratio */
-    object-fit: cover; /* CHANGED: Ensures the entire media fills the container, cropping if necessary */
+    width: 100%; /* CHANGED: Forces the media to take 100% of its parent's width */
+    height: 100%; /* CHANGED: Forces the media to take 100% of its parent's height */
+    /* max-width and max-height are now redundant here as width/height are 100% */
+    /* width: auto; height: auto; are removed because we want to force 100% */
+    object-fit: cover; /* This will now apply to the full 100% area */
     display: block; /* Remove extra space below images/videos */
 }
 
