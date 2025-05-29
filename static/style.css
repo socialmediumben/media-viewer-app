@@ -95,14 +95,10 @@ button:hover {
     align-items: center;
     justify-content: center;
     overflow: hidden; /* Hide any overflow from the media */
-    opacity: 0; /* NEW: Start with opacity 0 to hide the media content */
-    transition: opacity 0.3s ease-in-out; /* NEW: Smooth transition for media reveal */
+    /* REMOVED: opacity and transition from here */
 }
 
-/* NEW: Class to make the media display visible */
-#mediaDisplay.media-display-active {
-    opacity: 1;
-}
+/* REMOVED: #mediaDisplay.media-display-active class */
 
 #mediaDisplay img,
 #mediaDisplay video {

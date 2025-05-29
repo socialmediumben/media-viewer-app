@@ -18,7 +18,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`/media/${contentId}`);
             const data = await response.json();
             if (response.ok && data.file_path) {
-                return data.file_path; // Return the file_path directly
+                return data.file_path;
             } else {
                 console.error(`Failed to get media data for ID: ${contentId}`, data.error);
                 return null;
@@ -44,59 +44,55 @@ document.addEventListener('DOMContentLoaded', () => {
         return new Promise(resolve => {
             if (!videoPath) {
                 console.warn("Transition video path is missing. Skipping transition.");
-                resolve(); // Resolve immediately if path is missing
+                resolve();
                 return;
             }
-            transitionVideo.src = videoPath; // Set the source for the specific transition video
-            transitionVideo.currentTime = 0; // Ensure it starts from the beginning
+            transitionVideo.src = videoPath;
+            transitionVideo.currentTime = 0;
             transitionVideo.classList.add('active'); // Make overlay visible
             
-            // Set up event listener to resolve the promise when video ends
             transitionVideo.onended = () => {
-                transitionVideo.onended = null; // Remove listener to prevent multiple calls
-                resolve(); 
+                transitionVideo.onended = null;
+                resolve();
             };
 
-            // Attempt to play, handling cases where it might be blocked
             transitionVideo.play().catch(error => {
                 console.warn(`Transition video autoplay blocked for ${videoPath}:`, error);
-                // If autoplay is blocked, resolve immediately so the app doesn't hang.
-                // The transition won't be smooth, but the app will continue.
-                transitionVideo.classList.remove('active'); // Hide it if it can't play
+                // If autoplay is blocked, resolve immediately to not hang the app
+                transitionVideo.classList.remove('active'); // Hide it immediately if it can't play
                 transitionVideo.onended = null;
-                resolve(); 
+                resolve();
             });
         });
     }
 
     // --- Function to fetch and display media ---
     async function fetchMedia(contentId) {
-        // Clear the input field immediately after search is initiated
+        // Clear input field immediately
         contentIdInput.value = ''; 
 
-        // Ensure old media display is hidden before transition starts
-        mediaDisplay.classList.remove('media-display-active');
-        mediaTitle.classList.remove('visible');
+        // Hide title (if visible) before any transition or loading message
+        mediaTitle.classList.remove('visible'); 
 
-        // 1. Play door closing animation (covers the current media)
+        // 1. Play door closing animation OVER current media
         if (doorCloseVideoUrl) {
-            await playTransition(doorCloseVideoUrl); 
+            await playTransition(doorCloseVideoUrl); // Wait for Door Close to finish and cover screen
         } else {
             console.warn("Door Close video URL not available. Skipping closing transition.");
         }
 
-        // 2. ONLY NOW clear previous media content, as it's hidden behind the closed door
-        mediaDisplay.innerHTML = ''; 
-        mediaTitle.textContent = `Loading media for ID: ${contentId}...`;
-        mediaTitle.classList.add('visible'); 
+        // 2. NOW (screen should be fully covered by Door Close video):
+        //    Clear old media, show loading title, and load new media
+        mediaDisplay.innerHTML = ''; // Clear the old media
+        mediaTitle.textContent = `Loading media for ID: ${contentId}...`; // Show loading title
+        mediaTitle.classList.add('visible'); // Make loading title visible
 
         try {
             const response = await fetch(`/media/${contentId}`);
             const data = await response.json();
 
             if (response.ok) {
-                mediaTitle.textContent = data.title;
-
+                // Determine file path for the new media
                 let filePath;
                 if (data.file_path.startsWith('http://') || data.file_path.startsWith('https://')) {
                     filePath = data.file_path;
@@ -104,6 +100,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     filePath = `/static/${data.file_path}`;
                 }
 
+                // Create a promise that resolves when the new media is fully loaded/ready
                 const mediaLoadedPromise = new Promise((resolve, reject) => {
                     if (data.type === 'image') {
                         const img = document.createElement('img');
@@ -111,7 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
                         img.alt = data.title;
                         img.onload = () => {
                             mediaDisplay.appendChild(img);
-                            resolve();
+                            resolve(); // Image loaded
                         };
                         img.onerror = () => {
                             reject(new Error(`Error loading image: ${data.title}`));
@@ -136,8 +133,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         }).catch(error => {
                             console.warn("Autoplay was prevented:", error);
                             video.controls = true;
-                            mediaTitle.textContent = `${data.title} (Autoplay blocked, click to play)`;
-                            mediaTitle.classList.add('visible');
+                            mediaTitle.textContent = `${data.title} (Autoplay blocked, click to play)`; // Update title
+                            mediaTitle.classList.add('visible'); // Keep title visible
                             video.addEventListener('click', function _listener() {
                                 video.play().then(() => {
                                     mediaTitle.classList.remove('visible');
@@ -146,7 +143,7 @@ document.addEventListener('DOMContentLoaded', () => {
                                     console.error("Manual play also failed:", err);
                                 });
                             });
-                            resolve();
+                            resolve(); // Resolve promise so transition can continue
                         });
 
                         video.onerror = () => {
@@ -158,46 +155,39 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                 });
 
-                // 3. Wait for the new media to load (while doors are closed)
+                // Wait for the new media to finish loading (while still covered by Door Close video)
                 await mediaLoadedPromise;
-                mediaTitle.classList.remove('visible');
+                mediaTitle.classList.remove('visible'); // Hide loading title if successful
 
             } else {
+                // If fetching data fails, show error and don't play opening animation
                 mediaTitle.textContent = data.error || `Error fetching media for ID: ${contentId}.`;
                 mediaTitle.classList.add('visible');
-                mediaDisplay.innerHTML = '';
+                mediaDisplay.innerHTML = ''; // Ensure display is empty on error
             }
         } catch (error) {
             console.error('Network error or problem fetching media:', error);
             mediaTitle.textContent = 'Failed to load media (network error or invalid ID).';
-            mediaTitle.innerHTML = '';
             mediaTitle.classList.add('visible');
+            mediaDisplay.innerHTML = ''; // Ensure display is empty on error
         }
 
-        // 4. Play door opening animation (only if new media was successfully prepared)
-        if (mediaDisplay.querySelector('img, video')) {
-             // NEW: Play the Door Open video first
-             if (doorOpenVideoUrl) {
-                await playTransition(doorOpenVideoUrl); 
-             } else {
-                 console.warn("Door Open video URL not available. Skipping opening transition.");
-             }
-
-             // NEW: Add a short delay BEFORE revealing the new media
-             await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay
-
-             mediaDisplay.classList.add('media-display-active'); // Make new media visible
+        // 3. Play door opening animation
+        // This will play OVER the new media, revealing it as the door opens.
+        if (mediaDisplay.querySelector('img, video') && doorOpenVideoUrl) {
+             // Start playing Door Open. The new media is already in mediaDisplay (but under the transition video).
+             await playTransition(doorOpenVideoUrl); // Wait for Door Open to finish
              
-             // After Door Open plays and media is active, hide the transition video overlay
+             // After Door Open plays, hide the transition video overlay
              transitionVideo.classList.remove('active');
              transitionVideo.pause();
              transitionVideo.currentTime = 0;
         } else {
             console.warn("Door Open transition skipped due to no media loaded or URL missing.");
+            // Ensure transition video is hidden if it was left active
             transitionVideo.classList.remove('active');
             transitionVideo.pause();
             transitionVideo.currentTime = 0;
-            mediaDisplay.classList.remove('media-display-active'); // Ensure hidden on error
         }
     }
 
@@ -283,6 +273,4 @@ document.addEventListener('DOMContentLoaded', () => {
     mediaTitle.classList.remove('visible');
     // Initial state: Hide controls on page load
     controlsDiv.classList.remove('visible');
-    // Initial state: Hide media display content
-    mediaDisplay.classList.remove('media-display-active');
 });
