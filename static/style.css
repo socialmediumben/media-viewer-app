@@ -26,15 +26,15 @@ body {
     display: flex;
     gap: 10px;
     box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
-    opacity: 0; /* NEW: Start with opacity 0 to hide it */
-    pointer-events: none; /* NEW: Prevent interaction when hidden */
-    transition: opacity 0.3s ease-in-out; /* NEW: Add a smooth transition */
+    opacity: 0; /* Start with opacity 0 to hide it */
+    pointer-events: none; /* Prevent interaction when hidden */
+    transition: opacity 0.3s ease-in-out; /* Add a smooth transition */
 }
 
 /* Add a class to make it visible */
 .controls.visible {
     opacity: 1;
-    pointer-events: auto; /* NEW: Enable interaction when visible */
+    pointer-events: auto; /* Enable interaction when visible */
 }
 
 input[type="text"] {
@@ -95,15 +95,20 @@ button:hover {
     align-items: center;
     justify-content: center;
     overflow: hidden; /* Hide any overflow from the media */
+    opacity: 0; /* NEW: Start with opacity 0 to hide the media content */
+    transition: opacity 0.3s ease-in-out; /* NEW: Smooth transition for media reveal */
+}
+
+/* NEW: Class to make the media display visible */
+#mediaDisplay.media-display-active {
+    opacity: 1;
 }
 
 #mediaDisplay img,
 #mediaDisplay video {
-    width: 100%; /* CHANGED: Forces the media to take 100% of its parent's width */
-    height: 100%; /* CHANGED: Forces the media to take 100% of its parent's height */
-    /* max-width and max-height are now redundant here as width/height are 100% */
-    /* width: auto; height: auto; are removed because we want to force 100% */
-    object-fit: cover; /* This will now apply to the full 100% area */
+    width: 100%; /* Forces the media to take 100% of its parent's width */
+    height: 100%; /* Forces the media to take 100% of its parent's height */
+    object-fit: cover; /* Ensures the entire media fills the container, cropping if necessary */
     display: block; /* Remove extra space below images/videos */
 }
 
