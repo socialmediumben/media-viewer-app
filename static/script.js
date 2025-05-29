@@ -60,6 +60,8 @@ document.addEventListener('DOMContentLoaded', () => {
             // Attempt to play, handling cases where it might be blocked
             transitionVideo.play().catch(error => {
                 console.warn(`Transition video autoplay blocked for ${videoPath}:`, error);
+                // If autoplay is blocked, resolve immediately so the app doesn't hang.
+                // The transition won't be smooth, but the app will continue.
                 transitionVideo.classList.remove('active'); // Hide it if it can't play
                 transitionVideo.onended = null;
                 resolve(); 
@@ -73,8 +75,8 @@ document.addEventListener('DOMContentLoaded', () => {
         contentIdInput.value = ''; 
 
         // Ensure old media display is hidden before transition starts
-        mediaDisplay.classList.remove('media-display-active'); // NEW: Hide mediaDisplay initially
-        mediaTitle.classList.remove('visible'); // Hide title before starting new display
+        mediaDisplay.classList.remove('media-display-active');
+        mediaTitle.classList.remove('visible');
 
         // 1. Play door closing animation (covers the current media)
         if (doorCloseVideoUrl) {
@@ -158,10 +160,9 @@ document.addEventListener('DOMContentLoaded', () => {
 
                 // 3. Wait for the new media to load (while doors are closed)
                 await mediaLoadedPromise;
-                mediaTitle.classList.remove('visible'); // Hide loading title if successful
+                mediaTitle.classList.remove('visible');
 
             } else {
-                // If fetching data fails, show error and don't play opening animation
                 mediaTitle.textContent = data.error || `Error fetching media for ID: ${contentId}.`;
                 mediaTitle.classList.add('visible');
                 mediaDisplay.innerHTML = '';
@@ -174,10 +175,20 @@ document.addEventListener('DOMContentLoaded', () => {
         }
 
         // 4. Play door opening animation (only if new media was successfully prepared)
-        // Ensure new media is active/visible just before opening transition starts
         if (mediaDisplay.querySelector('img, video')) {
-             mediaDisplay.classList.add('media-display-active'); // NEW: Make new media visible
-             await playTransition(doorOpenVideoUrl); 
+             // NEW: Play the Door Open video first
+             if (doorOpenVideoUrl) {
+                await playTransition(doorOpenVideoUrl); 
+             } else {
+                 console.warn("Door Open video URL not available. Skipping opening transition.");
+             }
+
+             // NEW: Add a short delay BEFORE revealing the new media
+             await new Promise(resolve => setTimeout(resolve, 500)); // 500ms delay
+
+             mediaDisplay.classList.add('media-display-active'); // Make new media visible
+             
+             // After Door Open plays and media is active, hide the transition video overlay
              transitionVideo.classList.remove('active');
              transitionVideo.pause();
              transitionVideo.currentTime = 0;
@@ -273,5 +284,5 @@ document.addEventListener('DOMContentLoaded', () => {
     // Initial state: Hide controls on page load
     controlsDiv.classList.remove('visible');
     // Initial state: Hide media display content
-    mediaDisplay.classList.remove('media-display-active'); // NEW: Ensure mediaDisplay is hidden on initial load
+    mediaDisplay.classList.remove('media-display-active');
 });
